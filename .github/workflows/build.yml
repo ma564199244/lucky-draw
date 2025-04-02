@@ -1,71 +1,62 @@
-name: Build and Release with Cleanup
-
+name: Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # 只有打 tag 时触发自动发布
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
+      # 步骤 1: 拉取代码
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整提交历史
 
+      # 步骤 2: 设置 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 16.x
           cache: 'npm'
 
+      # 步骤 3: 安装依赖
       - name: Install dependencies
         run: |
+          npm config set registry https://registry.npmmirror.com
           npm install
+          npm uninstall node-sass
+          npm install sass sass-loader@10 --save-dev
           npm install electron@28.0.0 electron-builder@24.6.3 --save-dev
 
+      # 步骤 4: 构建 Vue 项目
       - name: Build project
         run: npm run build
 
-      - name: Build EXE
-        run: npx electron-builder --win --publish never
+      # 步骤 : 版本号处理
+      - name: Get version
+        id: get-version
+        run: |
+          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
+
+      # 步骤 5: 打包并发布
+      - name: Build and publish
+        run: npx electron-builder --win --publish always
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # 使用仓库 secret
           NODE_ENV: production
 
-  release-cleanup:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      # 步骤 1: 删除旧版发布（保留最近3个）
-      - name: Clean previous releases
-        uses: dev-drprasad/delete-old-releases@v0.2.3
+      # 步骤 6: 创建 Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          repo: ${{ github.repository }}
-          keep_latest: 3         # 保留最新3个发布
-          delete_tags: true     # 同时删除关联的标签
-          exclude_pattern: '.*' # 保留所有名称格式的发布
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-
-      # 步骤 2: 创建新发布
-      - name: Create new release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-
-      # 步骤 3: 上传构建文件
-      - name: Upload release asset
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: |
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: Release v${{ steps.get-version.outputs.version }}
+          body: 自动构建版本 ${{ steps.get-version.outputs.version }}
+          files: |
             electron-dist/*.exe
             electron-dist/*.blockmap
-          asset_name: ${{ github.ref_name }}_build${{ github.run_id }}.exe
-          overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

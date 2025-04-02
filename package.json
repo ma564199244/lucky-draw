@@ -45,7 +45,7 @@
      "files": ["dist/**/*", "electron-main.js"], 
     "win": {
       "target": "nsis",
-      "icon": ""
+      "icon": "",
       "artifactName": "${productName}-Setup-${version}-${env.GITHUB_RUN_ID}.${ext}"
     }
   }

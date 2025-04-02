@@ -4,6 +4,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "electron:build": "electron-builder --win",
     "dev": "vue-cli-service serve",
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
@@ -31,5 +32,16 @@
     "prettier": "^1.19.1",
     "sass-loader": "^10.1.1",
     "vue-template-compiler": "^2.6.10"
+  },
+  "build": {  
+    "appId": "com.luckydraw.app",
+    "productName": "年会抽奖程序",
+    "directories": {
+      "output": "electron-dist"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.ico"
+    }
   }
 }

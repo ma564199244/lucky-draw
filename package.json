@@ -46,6 +46,7 @@
     "win": {
       "target": "nsis",
       "icon": ""
+      "artifactName": "${productName}-Setup-${version}-${env.GITHUB_RUN_ID}.${ext}"
     }
   }
 }

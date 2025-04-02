@@ -1,7 +1,8 @@
-name: Build EXE
+name: Build and Release
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'  # 只有打 tag 时触发自动发布
   workflow_dispatch:
 
 jobs:
@@ -11,6 +12,8 @@ jobs:
       # 步骤 1: 拉取代码
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整提交历史
 
       # 步骤 2: 设置 Node.js 环境
       - name: Setup Node.js
@@ -19,49 +22,41 @@ jobs:
           node-version: 16.x
           cache: 'npm'
 
-      # 步骤 3: 修复依赖和构建环境
-      - name: Prepare environment
-        run: |
-          # 设置国内镜像加速
-          npm config set registry https://registry.npmmirror.com
-          
-          # 修复 Windows 文件权限
-          icacls . /grant Everyone:F /T
-
-      # 步骤 4: 安装依赖
+      # 步骤 3: 安装依赖
       - name: Install dependencies
         run: |
+          npm config set registry https://registry.npmmirror.com
           npm install
-          # 替换 node-sass 为 sass
           npm uninstall node-sass
           npm install sass sass-loader@10 --save-dev
-          # 安装指定版本的 Electron
           npm install electron@28.0.0 electron-builder@24.6.3 --save-dev
 
-      # 步骤 5: 构建 Vue 项目
-      - name: Build Vue project
+      # 步骤 4: 构建 Vue 项目
+      - name: Build project
         run: npm run build
 
-      # 步骤 6: 准备 Electron 主进程文件
-      - name: Prepare Electron files
+      # 步骤 : 版本号处理
+      - name: Get version
+        id: get-version
         run: |
-          # 将主进程文件复制到构建目录
-          cp electron-main.js dist/
-          # 确保目录结构正确
-          mkdir -p electron-dist
+          echo "version=$(node -p 'require("./package.json").version')" >> $GITHUB_OUTPUT
 
-      # 步骤 7: 打包 EXE
-      - name: Build Electron app
-        run: npm run electron:build
+      # 步骤 5: 打包并发布
+      - name: Build and publish
+        run: npx electron-builder --win --publish always
         env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}  # 使用仓库 secret
           NODE_ENV: production
 
-      # 步骤 8: 上传成品
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      # 步骤 6: 创建 Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          name: lucky-draw-exe
-          path: |
+          tag_name: v${{ steps.get-version.outputs.version }}
+          name: Release v${{ steps.get-version.outputs.version }}
+          body: 自动构建版本 ${{ steps.get-version.outputs.version }}
+          files: |
             electron-dist/*.exe
-            electron-dist/*.nsis
-          retention-days: 3
+            electron-dist/*.blockmap
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}

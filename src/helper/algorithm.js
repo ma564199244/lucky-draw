@@ -95,7 +95,4 @@ export function luckydrawHandler(total, won = [], num) {
   return res;
 }
 
-// 生成范围数组的辅助函数
-function generateArray(start, end) {
-  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-}
+

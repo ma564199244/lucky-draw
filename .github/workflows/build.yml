@@ -2,28 +2,36 @@ name: Build EXE
 on:
   push:
     branches: [main]
+  workflow_dispatch:  # 允许手动触发
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - name: 拉取代码
+      - name: Checkout code
         uses: actions/checkout@v4
-      - name: 安装 Node.js
+
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 16.x
-      - name: 修复依赖问题
+
+      - name: Install dependencies
         run: |
           npm install
           npm uninstall node-sass
           npm install sass sass-loader@10 --save-dev
-      - name: 构建前端
+
+      - name: Build project
         run: npm run build
-      - name: 安装 Electron
+
+      - name: Install Electron
         run: npm install electron electron-builder --save-dev
-      - name: 打包 EXE
+
+      - name: Build EXE
         run: npm run electron:build
-      - name: 上传 EXE
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: lucky-draw-exe

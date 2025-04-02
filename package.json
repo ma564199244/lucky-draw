@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "main": "electron-main.js", 
   "scripts": {
     "electron:build": "electron-builder --win",
     "dev": "vue-cli-service serve",
@@ -41,6 +42,7 @@
     "directories": {
       "output": "electron-dist"
     },
+     "files": ["dist/**/*", "electron-main.js"], 
     "win": {
       "target": "nsis",
       "icon": "public/favicon.ico"

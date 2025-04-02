@@ -1,22 +1,25 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
+const { app, BrowserWindow } = require('electron')
+const path = require('path')
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: true,        // 允许渲染进程使用 Node.js
+      contextIsolation: false,     // 禁用上下文隔离
+      webSecurity: false           // 禁用安全策略（慎用）
     }
-  });
+  })
 
-  // 加载 Vue 构建后的入口文件
+  // 开发环境加载本地服务
   if (process.env.NODE_ENV === 'development') {
-    win.loadURL('http://localhost:8080');  // 开发模式
+    win.loadURL('http://localhost:8080')
+    win.webContents.openDevTools() // 打开开发者工具
   } else {
-    win.loadFile(path.join(__dirname, 'dist/index.html'));  // 生产模式
+    // 生产环境加载构建文件
+    win.loadFile(path.join(__dirname, 'dist/index.html'))
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindow)

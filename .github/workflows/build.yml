@@ -1,15 +1,14 @@
-name: Build and Release
+name: Build and Release with Cleanup
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: windows-latest
-    outputs:
-      artifact-name: ${{ steps.set-vars.outputs.artifact-name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,28 +17,38 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 16.x
+          cache: 'npm'
 
-      - name: Build project
+      - name: Install dependencies
         run: |
           npm install
-          npm run build
+          npm install electron@28.0.0 electron-builder@24.6.3 --save-dev
 
-      - name: Generate unique artifact name
-        id: set-vars
-        run: |
-          ARTIFACT_NAME="年会抽奖程序-Setup-$(date +%Y%m%d%H%M%S).exe"
-          echo "artifact-name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
+      - name: Build project
+        run: npm run build
 
       - name: Build EXE
         run: npx electron-builder --win --publish never
         env:
           NODE_ENV: production
 
-  release:
+  release-cleanup:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Create Release
+      # 步骤 1: 删除旧版发布（保留最近3个）
+      - name: Clean previous releases
+        uses: dev-drprasad/delete-old-releases@v0.2.3
+        with:
+          repo: ${{ github.repository }}
+          keep_latest: 3         # 保留最新3个发布
+          delete_tags: true     # 同时删除关联的标签
+          exclude_pattern: '.*' # 保留所有名称格式的发布
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      # 步骤 2: 创建新发布
+      - name: Create new release
         id: create_release
         uses: actions/create-release@v1
         env:
@@ -50,10 +59,13 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset
+      # 步骤 3: 上传构建文件
+      - name: Upload release asset
         uses: actions/upload-release-asset@v1
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./electron-dist/*.exe
-          asset_name: ${{ needs.build.outputs.artifact-name }}
-          asset_content_type: application/octet-stream
+          asset_path: |
+            electron-dist/*.exe
+            electron-dist/*.blockmap
+          asset_name: ${{ github.ref_name }}_build${{ github.run_id }}.exe
+          overwrite: true

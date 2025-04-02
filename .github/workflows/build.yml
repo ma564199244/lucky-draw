@@ -8,40 +8,60 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
+      # 步骤 1: 拉取代码
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            node_modules
-            ~/.npm
-            ~/.electron
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-
+      # 步骤 2: 设置 Node.js 环境
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 16.x
+          cache: 'npm'
 
+      # 步骤 3: 修复依赖和构建环境
+      - name: Prepare environment
+        run: |
+          # 设置国内镜像加速
+          npm config set registry https://registry.npmmirror.com
+          
+          # 修复 Windows 文件权限
+          icacls . /grant Everyone:F /T
+
+      # 步骤 4: 安装依赖
       - name: Install dependencies
         run: |
           npm install
+          # 替换 node-sass 为 sass
           npm uninstall node-sass
           npm install sass sass-loader@10 --save-dev
+          # 安装指定版本的 Electron
+          npm install electron@28.0.0 electron-builder@24.6.3 --save-dev
 
-      - name: Install Electron
-        run: npm install electron@28.0.0 electron-builder@24.6.3 --save-dev  # 关键修正点
-
-      - name: Build project
+      # 步骤 5: 构建 Vue 项目
+      - name: Build Vue project
         run: npm run build
 
-      - name: Build EXE
-        run: npm run electron:build
+      # 步骤 6: 准备 Electron 主进程文件
+      - name: Prepare Electron files
+        run: |
+          # 将主进程文件复制到构建目录
+          cp electron-main.js dist/
+          # 确保目录结构正确
+          mkdir -p electron-dist
 
-      - name: Upload Artifact
+      # 步骤 7: 打包 EXE
+      - name: Build Electron app
+        run: npm run electron:build
+        env:
+          NODE_ENV: production
+
+      # 步骤 8: 上传成品
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: lucky-draw-exe
-          path: electron-dist/
+          path: |
+            electron-dist/*.exe
+            electron-dist/*.nsis
+          retention-days: 3
